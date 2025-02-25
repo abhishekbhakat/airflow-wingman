@@ -17,8 +17,8 @@ MODELS = {
         "endpoint": "https://api.anthropic.com/v1/messages",
         "models": [
             {
-                "id": "claude-3.5-sonnet",
-                "name": "Claude 3.5 Sonnet",
+                "id": "claude-3.7-sonnet",
+                "name": "Claude 3.7 Sonnet",
                 "default": True,
                 "context_window": 200000,
                 "description": "Input $3/M tokens, Output $15/M tokens",
