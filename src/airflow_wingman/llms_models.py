@@ -17,14 +17,14 @@ MODELS = {
         "endpoint": "https://api.anthropic.com/v1/messages",
         "models": [
             {
-                "id": "claude-3.7-sonnet",
+                "id": "claude-3-7-sonnet-20250219",
                 "name": "Claude 3.7 Sonnet",
                 "default": True,
                 "context_window": 200000,
                 "description": "Input $3/M tokens, Output $15/M tokens",
             },
             {
-                "id": "claude-3.5-haiku",
+                "id": "claude-3-5-haiku-20241022",
                 "name": "Claude 3.5 Haiku",
                 "default": False,
                 "context_window": 200000,

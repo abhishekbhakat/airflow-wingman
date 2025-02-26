@@ -150,6 +150,7 @@
     border: 1px solid #e9ecef;
     border-radius: 15px 15px 15px 0;
     padding: 10px 15px;
+    white-space: pre-wrap;
 }
 
 #chat-messages::after {
@@ -349,6 +350,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (line.startsWith('data: ')) {
                         const content = line.slice(6);
                         if (content) {
+                            // Use textContent to properly handle newlines
+                            console.log('Received chunk:', JSON.stringify(content)); // Debug
                             currentMessageDiv.textContent += content;
                             fullResponse += content;
                             chatMessages.scrollTop = chatMessages.scrollHeight;
