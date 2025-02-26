@@ -265,6 +265,7 @@ class AnthropicProvider(BaseLLMProvider):
         Returns:
             Generator yielding content chunks
         """
+        logger.info("Starting Anthropic streaming response processing")
 
         def generate():
             for chunk in response:

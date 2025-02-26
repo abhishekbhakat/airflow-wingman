@@ -1,5 +1,8 @@
 """Views for Airflow Wingman plugin."""
 
+import json
+import logging
+
 from flask import Response, request, session
 from flask.json import jsonify
 from flask_appbuilder import BaseView as AppBuilderBaseView, expose
@@ -9,6 +12,9 @@ from airflow_wingman.llms_models import MODELS
 from airflow_wingman.notes import INTERFACE_MESSAGES
 from airflow_wingman.prompt_engineering import prepare_messages
 from airflow_wingman.tools import list_airflow_tools
+
+# Create a properly namespaced logger for the Airflow plugin
+logger = logging.getLogger("airflow.plugins.wingman")
 
 
 class WingmanView(AppBuilderBaseView):
@@ -49,6 +55,11 @@ class WingmanView(AppBuilderBaseView):
 
             # Get base URL from models configuration based on provider
             base_url = MODELS.get(provider_name, {}).get("endpoint")
+
+            # Log the request parameters (excluding API key for security)
+            safe_data = {k: v for k, v in data.items() if k != "api_key"}
+            logger.info(f"Chat request: provider={provider_name}, model={data.get('model')}, stream={data.get('stream')}")
+            logger.info(f"Request parameters: {json.dumps(safe_data)[:200]}...")
 
             # Create a new client for this request with the appropriate provider
             client = LLMClient(provider_name=provider_name, api_key=data["api_key"], base_url=base_url)
@@ -96,24 +107,39 @@ class WingmanView(AppBuilderBaseView):
     def _handle_streaming_response(self, client: LLMClient, data: dict) -> Response:
         """Handle streaming response."""
         try:
-            # Get the streaming generator from the client
+            logger.info("Beginning streaming response")
             generator = client.chat_completion(messages=data["messages"], model=data["model"], temperature=data["temperature"], max_tokens=data["max_tokens"], stream=True)
 
             def stream_response():
+                complete_response = ""
+
                 # Send SSE format for each chunk
                 for chunk in generator:
                     if chunk:
                         yield f"data: {chunk}\n\n"
 
-                # Signal end of stream
+                # Log the complete assembled response at the end
+                logger.info("COMPLETE RESPONSE START >>>")
+                logger.info(complete_response)
+                logger.info("<<< COMPLETE RESPONSE END")
+
                 yield "data: [DONE]\n\n"
 
             return Response(stream_response(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
         except Exception as e:
-            # If streaming fails, return error
+            logger.error(f"Streaming error: {str(e)}")
             return jsonify({"error": str(e)}), 500
 
     def _handle_regular_response(self, client: LLMClient, data: dict) -> Response:
         """Handle regular response."""
-        response = client.chat_completion(messages=data["messages"], model=data["model"], temperature=data["temperature"], max_tokens=data["max_tokens"], stream=False)
-        return jsonify(response)
+        try:
+            logger.info("Beginning regular (non-streaming) response")
+            response = client.chat_completion(messages=data["messages"], model=data["model"], temperature=data["temperature"], max_tokens=data["max_tokens"], stream=False)
+            logger.info("COMPLETE RESPONSE START >>>")
+            logger.info(f"Response to frontend: {json.dumps(response)}")
+            logger.info("<<< COMPLETE RESPONSE END")
+
+            return jsonify(response)
+        except Exception as e:
+            logger.error(f"Regular response error: {str(e)}")
+            return jsonify({"error": str(e)}), 500

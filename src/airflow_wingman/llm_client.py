@@ -75,6 +75,7 @@ class LLMClient:
 
             # If streaming, return the generator directly
             if stream:
+                logger.info(f"Using streaming response from {self.provider_name}")
                 return self.provider.get_streaming_content(response)
 
             # For non-streaming responses, handle tool calls if present
@@ -96,10 +97,18 @@ class LLMClient:
                     messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, tool_results=tool_results, original_response=response
                 )
 
-                return {"content": self.provider.get_content(follow_up_response)}
+                content = self.provider.get_content(follow_up_response)
+                logger.info(f"Final content from {self.provider_name} with tool calls COMPLETE RESPONSE START >>>")
+                logger.info(content)
+                logger.info("<<< COMPLETE RESPONSE END")
+                return {"content": content}
             else:
                 logger.info("Response does not contain tool calls")
-                return {"content": self.provider.get_content(response)}
+                content = self.provider.get_content(response)
+                logger.info(f"Final content from {self.provider_name} without tool calls COMPLETE RESPONSE START >>>")
+                logger.info(content)
+                logger.info("<<< COMPLETE RESPONSE END")
+                return {"content": content}
 
         except Exception as e:
             error_msg = f"Error in {self.provider_name} API call: {str(e)}\n{traceback.format_exc()}"

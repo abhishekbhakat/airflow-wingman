@@ -213,6 +213,7 @@ class OpenAIProvider(BaseLLMProvider):
         Returns:
             Generator yielding content chunks
         """
+        logger.info("Starting OpenAI streaming response processing")
 
         def generate():
             for chunk in response:
