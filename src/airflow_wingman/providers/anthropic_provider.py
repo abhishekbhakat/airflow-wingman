@@ -5,17 +5,18 @@ This module contains the Anthropic provider implementation that handles
 API requests, tool conversion, and response processing for Anthropic's Claude models.
 """
 
+import logging
 import traceback
 from typing import Any
 
-from airflow.utils.log.logging_mixin import LoggingMixin
 from anthropic import Anthropic
 
 from airflow_wingman.providers.base import BaseLLMProvider
 from airflow_wingman.tools import execute_airflow_tool
 from airflow_wingman.tools.conversion import convert_to_anthropic_tools
 
-logger = LoggingMixin().log
+# Create a properly namespaced logger for the Airflow plugin
+logger = logging.getLogger("airflow.plugins.wingman")
 
 
 class AnthropicProvider(BaseLLMProvider):

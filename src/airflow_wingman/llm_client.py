@@ -5,17 +5,17 @@ This module contains the LLMClient class that supports multiple LLM providers
 (OpenAI, Anthropic, OpenRouter) through a unified interface.
 """
 
+import logging
 import traceback
 from typing import Any
 
-from airflow.utils.log.logging_mixin import LoggingMixin
 from flask import session
 
 from airflow_wingman.providers import create_llm_provider
 from airflow_wingman.tools import list_airflow_tools
 
-# Create a logger instance
-logger = LoggingMixin().log
+# Create a properly namespaced logger for the Airflow plugin
+logger = logging.getLogger("airflow.plugins.wingman")
 
 
 class LLMClient:
@@ -102,7 +102,7 @@ class LLMClient:
                 return {"content": self.provider.get_content(response)}
 
         except Exception as e:
-            error_msg = f"Error in {self.provider_name} API call: {str(e)}\\n{traceback.format_exc()}"
+            error_msg = f"Error in {self.provider_name} API call: {str(e)}\n{traceback.format_exc()}"
             logger.error(error_msg)
             return {"error": f"API request failed: {str(e)}"}
 

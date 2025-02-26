@@ -6,15 +6,15 @@ This module contains functions to list and execute Airflow tools.
 
 import asyncio
 import json
+import logging
 import traceback
 
 from airflow import configuration
-from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow_mcp_server.config import AirflowConfig
 from airflow_mcp_server.tools.tool_manager import get_airflow_tools, get_tool
 
-# Create a logger instance
-logger = LoggingMixin().log
+# Create a properly namespaced logger for the Airflow plugin
+logger = logging.getLogger("airflow.plugins.wingman")
 
 
 async def _list_airflow_tools_async(cookie: str) -> list:
