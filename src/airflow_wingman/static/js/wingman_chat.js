@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Add title attributes for tooltips
+    // Initialize tooltips
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el) {
         el.title = el.getAttribute('title') || el.getAttribute('data-bs-original-title');
     });
@@ -80,12 +80,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${isUser ? 'message-user' : 'message-assistant'}`;
 
-        // Apply pre-formatted class to preserve whitespace and newlines
         messageDiv.classList.add('pre-formatted');
-
-        // Use innerText instead of textContent to preserve newlines
-        messageDiv.innerText = content;
-
+    
+        // Use marked.js to render markdown
+        try {
+            // Configure marked options
+            marked.use({
+                breaks: true,        // Add line breaks on single newlines
+                gfm: true,           // Use GitHub Flavored Markdown
+                headerIds: false,    // Don't add IDs to headers
+                mangle: false,       // Don't mangle email addresses
+            });
+            
+            // Render markdown to HTML
+            messageDiv.innerHTML = marked.parse(content);
+        } catch (e) {
+            console.error('Error rendering markdown:', e);
+            // Fallback to innerText if markdown parsing fails
+            messageDiv.innerText = content;
+        }
+    
         chatMessages.appendChild(messageDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
         return messageDiv;
@@ -228,12 +242,24 @@ document.addEventListener('DOMContentLoaded', function() {
                                 console.log('Received complete response from backend');
                                 // Use the complete response from the backend
                                 fullResponse = parsed.content;
-
-                                // Update the display with the complete response
-                                if (!currentMessageDiv.classList.contains('pre-formatted')) {
-                                    currentMessageDiv.classList.add('pre-formatted');
+                            
+                                // Use marked.js to render markdown
+                                try {
+                                    // Configure marked options
+                                    marked.use({
+                                        breaks: true,        // Add line breaks on single newlines
+                                        gfm: true,           // Use GitHub Flavored Markdown
+                                        headerIds: false,    // Don't add IDs to headers
+                                        mangle: false,       // Don't mangle email addresses
+                                    });
+                                    
+                                    // Render markdown to HTML
+                                    currentMessageDiv.innerHTML = marked.parse(fullResponse);
+                                } catch (e) {
+                                    console.error('Error rendering markdown:', e);
+                                    // Fallback to innerText if markdown parsing fails
+                                    currentMessageDiv.innerText = fullResponse;
                                 }
-                                currentMessageDiv.innerText = fullResponse;
                                 continue;
                             }
 
@@ -253,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
 
                             // Always rebuild the entire content from the full response
-                            currentMessageDiv.innerText = fullResponse;
+                            currentMessageDiv.innerHTML = marked.parse(fullResponse);
                         }
                         // Scroll to bottom
                         chatMessages.scrollTop = chatMessages.scrollHeight;
