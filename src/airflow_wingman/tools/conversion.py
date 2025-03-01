@@ -5,6 +5,7 @@ This module contains functions to convert between different tool formats
 for various LLM providers (OpenAI, Anthropic, etc.).
 """
 
+import logging
 from typing import Any
 
 
@@ -84,6 +85,8 @@ def convert_to_anthropic_tools(airflow_tools: list) -> list:
     Returns:
         List of Anthropic tool definitions
     """
+    logger = logging.getLogger("airflow.plugins.wingman")
+    logger.info(f"Converting {len(airflow_tools)} Airflow tools to Anthropic format")
     anthropic_tools = []
 
     for tool in airflow_tools:
@@ -100,6 +103,7 @@ def convert_to_anthropic_tools(airflow_tools: list) -> list:
 
         anthropic_tools.append(anthropic_tool)
 
+    logger.info(f"Converted {len(anthropic_tools)} tools to Anthropic format")
     return anthropic_tools
 
 

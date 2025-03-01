@@ -5,6 +5,7 @@ This module contains the Anthropic provider implementation that handles
 API requests, tool conversion, and response processing for Anthropic's Claude models.
 """
 
+import json
 import logging
 import traceback
 from typing import Any
@@ -50,7 +51,7 @@ class AnthropicProvider(BaseLLMProvider):
         return convert_to_anthropic_tools(airflow_tools)
 
     def create_chat_completion(
-        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.7, max_tokens: int | None = None, stream: bool = False, tools: list[dict[str, Any]] | None = None
+        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.4, max_tokens: int | None = None, stream: bool = False, tools: list[dict[str, Any]] | None = None
     ) -> Any:
         """
         Make API request to Anthropic.
@@ -84,6 +85,12 @@ class AnthropicProvider(BaseLLMProvider):
             # Add tools if provided
             if tools and len(tools) > 0:
                 params["tools"] = tools
+            else:
+                logger.warning("No tools included in request")
+
+            # Log the full request parameters (with sensitive information redacted)
+            log_params = params.copy()
+            logger.info(f"Request parameters: {json.dumps(log_params)}")
 
             # Make the API request
             response = self.client.messages.create(**params)
@@ -185,7 +192,7 @@ class AnthropicProvider(BaseLLMProvider):
         return results
 
     def create_follow_up_completion(
-        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.7, max_tokens: int | None = None, tool_results: dict[str, Any] = None, original_response: Any = None
+        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.4, max_tokens: int | None = None, tool_results: dict[str, Any] = None, original_response: Any = None
     ) -> Any:
         """
         Create a follow-up completion with tool results.

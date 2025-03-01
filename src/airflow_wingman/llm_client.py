@@ -50,7 +50,9 @@ class LLMClient:
         """
         self.airflow_tools = tools
 
-    def chat_completion(self, messages: list[dict[str, str]], model: str, temperature: float = 0.7, max_tokens: int | None = None, stream: bool = False) -> dict[str, Any]:
+    def chat_completion(
+        self, messages: list[dict[str, str]], model: str, temperature: float = 0.4, max_tokens: int | None = None, stream: bool = True, return_response_obj: bool = False
+    ) -> dict[str, Any] | tuple[Any, Any]:
         """
         Send a chat completion request to the LLM provider.
 
@@ -60,9 +62,12 @@ class LLMClient:
             temperature: Sampling temperature (0-1)
             max_tokens: Maximum tokens to generate
             stream: Whether to stream the response (default is True)
+            return_response_obj: If True and streaming, returns both the response object and generator
 
         Returns:
-            Dictionary with the response content or a generator for streaming
+            If stream=False: Dictionary with the response content
+            If stream=True and return_response_obj=False: Generator for streaming
+            If stream=True and return_response_obj=True: Tuple of (response_obj, generator)
         """
         # Get provider-specific tool definitions from Airflow tools
         provider_tools = self.provider.convert_tools(self.airflow_tools)
@@ -73,10 +78,13 @@ class LLMClient:
             response = self.provider.create_chat_completion(messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, stream=stream, tools=provider_tools)
             logger.info(f"Received response from {self.provider_name}")
 
-            # If streaming, return the generator directly
+            # If streaming, handle based on return_response_obj flag
             if stream:
                 logger.info(f"Using streaming response from {self.provider_name}")
-                return self.provider.get_streaming_content(response)
+                if return_response_obj:
+                    return response, self.provider.get_streaming_content(response)
+                else:
+                    return self.provider.get_streaming_content(response)
 
             # For non-streaming responses, handle tool calls if present
             if self.provider.has_tool_calls(response):
@@ -134,6 +142,85 @@ class LLMClient:
             raise ValueError("API key is required")
 
         return cls(provider_name=provider_name, api_key=api_key, base_url=base_url)
+
+    def process_tool_calls_and_follow_up(self, response, messages, model, temperature, max_tokens, max_iterations=5):
+        """
+        Process tool calls recursively from a response and make follow-up requests until
+        there are no more tool calls or max_iterations is reached.
+        Returns a generator for streaming the final follow-up response.
+
+        Args:
+            response: The original response object containing tool calls
+            messages: List of message dictionaries with 'role' and 'content'
+            model: Model identifier
+            temperature: Sampling temperature (0-1)
+            max_tokens: Maximum tokens to generate
+            max_iterations: Maximum number of tool call iterations to prevent infinite loops
+
+        Returns:
+            Generator for streaming the final follow-up response
+        """
+        try:
+            iteration = 0
+            current_response = response
+            cookie = session.get("airflow_cookie")
+
+            if not cookie:
+                error_msg = "No Airflow cookie available"
+                logger.error(error_msg)
+                yield f"Error: {error_msg}"
+                return
+
+            # Process tool calls recursively until there are no more or max_iterations is reached
+            while self.provider.has_tool_calls(current_response) and iteration < max_iterations:
+                iteration += 1
+                logger.info(f"Processing tool calls iteration {iteration}/{max_iterations}")
+
+                # Process tool calls and get results
+                tool_results = self.provider.process_tool_calls(current_response, cookie)
+
+                # Make follow-up request with tool results
+                logger.info(f"Making follow-up request with tool results (iteration {iteration})")
+
+                # Only stream on the final iteration
+                should_stream = (iteration == max_iterations) or not self.provider.has_tool_calls(current_response)
+
+                follow_up_response = self.provider.create_follow_up_completion(
+                    messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, tool_results=tool_results, original_response=current_response, stream=should_stream
+                )
+
+                # Check if this follow-up response has more tool calls
+                if not self.provider.has_tool_calls(follow_up_response):
+                    logger.info(f"No more tool calls after iteration {iteration}")
+                    # Final response - return the streaming content
+                    if not should_stream:
+                        # If we didn't stream this response, we need to make a streaming version
+                        content = self.provider.get_content(follow_up_response)
+                        yield content
+                        return
+                    else:
+                        # Return the streaming generator
+                        return self.provider.get_streaming_content(follow_up_response)
+
+                # Update current_response for the next iteration
+                current_response = follow_up_response
+
+            # If we've reached max_iterations and still have tool calls, log a warning
+            if iteration == max_iterations and self.provider.has_tool_calls(current_response):
+                logger.warning(f"Reached maximum tool call iterations ({max_iterations})")
+                # Stream the final response even if it has tool calls
+                return self.provider.get_streaming_content(follow_up_response)
+
+            # If we didn't process any tool calls (shouldn't happen), return an error
+            if iteration == 0:
+                error_msg = "No tool calls found in response"
+                logger.error(error_msg)
+                yield f"Error: {error_msg}"
+
+        except Exception as e:
+            error_msg = f"Error processing tool calls: {str(e)}\n{traceback.format_exc()}"
+            logger.error(error_msg)
+            yield f"Error: {str(e)}"
 
     def refresh_tools(self, cookie: str) -> None:
         """

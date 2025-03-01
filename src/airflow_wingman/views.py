@@ -40,12 +40,18 @@ class WingmanView(AppBuilderBaseView):
 
             # Get available Airflow tools using the stored cookie
             airflow_tools = []
-            if session.get("airflow_cookie"):
+            airflow_cookie = request.cookies.get("session")
+            if airflow_cookie:
                 try:
-                    airflow_tools = list_airflow_tools(session["airflow_cookie"])
+                    airflow_tools = list_airflow_tools(airflow_cookie)
+                    logger.info(f"Loaded {len(airflow_tools)} Airflow tools")
+                    if len(airflow_tools) > 0:
+                        logger.info(f"First tool: {airflow_tools[0].name if hasattr(airflow_tools[0], 'name') else 'Unknown'}")
+                    else:
+                        logger.warning("No Airflow tools were loaded")
                 except Exception as e:
                     # Log the error but continue without tools
-                    print(f"Error fetching Airflow tools: {str(e)}")
+                    logger.error(f"Error fetching Airflow tools: {str(e)}")
 
             # Prepare messages with Airflow tools included in the prompt
             data["messages"] = prepare_messages(data["messages"])
@@ -97,7 +103,7 @@ class WingmanView(AppBuilderBaseView):
             "messages": data["messages"],
             "api_key": data["api_key"],
             "stream": data.get("stream", True),
-            "temperature": data.get("temperature", 0.7),
+            "temperature": data.get("temperature", 0.4),
             "max_tokens": data.get("max_tokens"),
             "cookie": data.get("cookie"),
             "provider": provider,
@@ -108,27 +114,51 @@ class WingmanView(AppBuilderBaseView):
         """Handle streaming response."""
         try:
             logger.info("Beginning streaming response")
-            generator = client.chat_completion(messages=data["messages"], model=data["model"], temperature=data["temperature"], max_tokens=data["max_tokens"], stream=True)
+            # Use the enhanced chat_completion method with return_response_obj=True
+            response_obj, generator = client.chat_completion(
+                messages=data["messages"], model=data["model"], temperature=data["temperature"], max_tokens=data["max_tokens"], stream=True, return_response_obj=True
+            )
 
             def stream_response():
                 complete_response = ""
 
-                # Send SSE format for each chunk
+                # Stream the initial response
                 for chunk in generator:
                     if chunk:
                         complete_response += chunk
                         yield f"data: {chunk}\n\n"
 
-                # Log the complete assembled response at the end
+                # Log the complete assembled response
                 logger.info("COMPLETE RESPONSE START >>>")
                 logger.info(complete_response)
                 logger.info("<<< COMPLETE RESPONSE END")
 
-                # Send the complete response as a special event
+                # Check for tool calls and make follow-up if needed
+                if client.provider.has_tool_calls(response_obj):
+                    # Signal tool processing start - frontend should disable send button
+                    yield f"data: {json.dumps({'event': 'tool_processing_start'})}\n\n"
+
+                    # Signal to replace content - frontend should clear the current message
+                    yield f"data: {json.dumps({'event': 'replace_content'})}\n\n"
+
+                    logger.info("Response contains tool calls, making follow-up request")
+
+                    # Process tool calls and get follow-up response (handles recursive tool calls)
+                    follow_up_response = client.process_tool_calls_and_follow_up(response_obj, data["messages"], data["model"], data["temperature"], data["max_tokens"])
+
+                    # Stream the follow-up response
+                    for chunk in follow_up_response:
+                        if chunk:
+                            yield f"data: {chunk}\n\n"
+
+                    # Signal tool processing complete - frontend can re-enable send button
+                    yield f"data: {json.dumps({'event': 'tool_processing_complete'})}\n\n"
+
+                # Send the complete response as a special event (for compatibility with existing code)
                 complete_event = json.dumps({"event": "complete_response", "content": complete_response})
                 yield f"data: {complete_event}\n\n"
 
-                # Signal the end of the stream
+                # Signal end of stream
                 yield "data: [DONE]\n\n"
 
             return Response(stream_response(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

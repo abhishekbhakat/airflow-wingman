@@ -33,7 +33,7 @@ class BaseLLMProvider(ABC):
 
     @abstractmethod
     def create_chat_completion(
-        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.7, max_tokens: int | None = None, stream: bool = False, tools: list[dict[str, Any]] | None = None
+        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.4, max_tokens: int | None = None, stream: bool = False, tools: list[dict[str, Any]] | None = None
     ) -> Any:
         """
         Make API request to provider.
@@ -80,7 +80,7 @@ class BaseLLMProvider(ABC):
 
     @abstractmethod
     def create_follow_up_completion(
-        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.7, max_tokens: int | None = None, tool_results: dict[str, Any] = None, original_response: Any = None
+        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.4, max_tokens: int | None = None, tool_results: dict[str, Any] = None, original_response: Any = None
     ) -> Any:
         """
         Create a follow-up completion with tool results.

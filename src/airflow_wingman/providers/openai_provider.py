@@ -52,7 +52,7 @@ class OpenAIProvider(BaseLLMProvider):
         return convert_to_openai_tools(airflow_tools)
 
     def create_chat_completion(
-        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.7, max_tokens: int | None = None, stream: bool = False, tools: list[dict[str, Any]] | None = None
+        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.4, max_tokens: int | None = None, stream: bool = False, tools: list[dict[str, Any]] | None = None
     ) -> Any:
         """
         Make API request to OpenAI.
@@ -77,6 +77,23 @@ class OpenAIProvider(BaseLLMProvider):
 
         try:
             logger.info(f"Sending chat completion request to OpenAI with model: {model}")
+
+            # Log information about tools
+            if not has_tools:
+                logger.warning("No tools included in request")
+
+            # Log request parameters
+            request_params = {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "stream": stream,
+                "tools": tools if has_tools else None,
+                "tool_choice": tool_choice,
+            }
+            logger.info(f"Request parameters: {json.dumps(request_params)}")
+
             response = self.client.chat.completions.create(
                 model=model, messages=messages, temperature=temperature, max_tokens=max_tokens, stream=stream, tools=tools if has_tools else None, tool_choice=tool_choice
             )
@@ -143,7 +160,7 @@ class OpenAIProvider(BaseLLMProvider):
         return results
 
     def create_follow_up_completion(
-        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.7, max_tokens: int | None = None, tool_results: dict[str, Any] = None, original_response: Any = None
+        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.4, max_tokens: int | None = None, tool_results: dict[str, Any] = None, original_response: Any = None
     ) -> Any:
         """
         Create a follow-up completion with tool results.

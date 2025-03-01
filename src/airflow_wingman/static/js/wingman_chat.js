@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
         messageDiv.className = `message ${isUser ? 'message-user' : 'message-assistant'}`;
 
         messageDiv.classList.add('pre-formatted');
-    
+
         // Use marked.js to render markdown
         try {
             // Configure marked options
@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 headerIds: false,    // Don't add IDs to headers
                 mangle: false,       // Don't mangle email addresses
             });
-            
+
             // Render markdown to HTML
             messageDiv.innerHTML = marked.parse(content);
         } catch (e) {
@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Fallback to innerText if markdown parsing fails
             messageDiv.innerText = content;
         }
-    
+
         chatMessages.appendChild(messageDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
         return messageDiv;
@@ -108,10 +108,18 @@ document.addEventListener('DOMContentLoaded', function() {
     function showProcessingIndicator() {
         processingIndicator.classList.add('visible');
         chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Disable send button and input field during tool processing
+        sendButton.disabled = true;
+        messageInput.disabled = true;
     }
 
     function hideProcessingIndicator() {
         processingIndicator.classList.remove('visible');
+
+        // Re-enable send button and input field after tool processing
+        sendButton.disabled = false;
+        messageInput.disabled = false;
     }
 
     async function sendMessage() {
@@ -169,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
             messages: messages,
             api_key: apiKey,
             stream: true,
-            temperature: 0.7
+            temperature: 0.4,
         };
         console.log('Sending request:', {...requestData, api_key: '***'});
 
@@ -231,6 +239,17 @@ document.addEventListener('DOMContentLoaded', function() {
                                 continue;
                             }
 
+                            if (parsed.event === 'replace_content') {
+                                console.log('Replacing content due to tool call');
+                                // Clear the current message content
+                                const currentMessageDiv = document.querySelector('.message.assistant:last-child .message-content');
+                                if (currentMessageDiv) {
+                                    currentMessageDiv.innerHTML = '';
+                                    fullResponse = ''; // Reset the full response
+                                }
+                                continue;
+                            }
+
                             if (parsed.event === 'tool_processing_complete') {
                                 console.log('Tool processing completed');
                                 hideProcessingIndicator();
@@ -242,7 +261,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 console.log('Received complete response from backend');
                                 // Use the complete response from the backend
                                 fullResponse = parsed.content;
-                            
+
                                 // Use marked.js to render markdown
                                 try {
                                     // Configure marked options
@@ -252,7 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         headerIds: false,    // Don't add IDs to headers
                                         mangle: false,       // Don't mangle email addresses
                                     });
-                                    
+
                                     // Render markdown to HTML
                                     currentMessageDiv.innerHTML = marked.parse(fullResponse);
                                 } catch (e) {
