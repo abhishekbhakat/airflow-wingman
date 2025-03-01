@@ -116,6 +116,7 @@ class WingmanView(AppBuilderBaseView):
                 # Send SSE format for each chunk
                 for chunk in generator:
                     if chunk:
+                        complete_response += chunk
                         yield f"data: {chunk}\n\n"
 
                 # Log the complete assembled response at the end
@@ -123,6 +124,11 @@ class WingmanView(AppBuilderBaseView):
                 logger.info(complete_response)
                 logger.info("<<< COMPLETE RESPONSE END")
 
+                # Send the complete response as a special event
+                complete_event = json.dumps({"event": "complete_response", "content": complete_response})
+                yield f"data: {complete_event}\n\n"
+
+                # Signal the end of the stream
                 yield "data: [DONE]\n\n"
 
             return Response(stream_response(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
