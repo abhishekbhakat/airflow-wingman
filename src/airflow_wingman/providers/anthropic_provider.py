@@ -104,7 +104,7 @@ class AnthropicProvider(BaseLLMProvider):
                 if callable(response.json):
                     # If json is a method, call it
                     try:
-                        logger.info(f"Anthropic response json: {json.dumps(response.json())}")
+                        logger.info(f"Anthropic response json: {json.dumps(response.model_dump_json())}")
                     except Exception as json_err:
                         logger.warning(f"Could not serialize response.json(): {str(json_err)}")
                 else:
@@ -274,6 +274,7 @@ class AnthropicProvider(BaseLLMProvider):
         tool_results: dict[str, Any] = None,
         original_response: Any = None,
         stream: bool = True,
+        tools: list[dict[str, Any]] | None = None,
     ) -> Any:
         """
         Create a follow-up completion with tool results.
@@ -286,6 +287,7 @@ class AnthropicProvider(BaseLLMProvider):
             tool_results: Results of tool executions
             original_response: Original response with tool calls
             stream: Whether to stream the response
+            tools: List of tool definitions in Anthropic format
 
         Returns:
             Anthropic response object or generator if streaming
@@ -327,7 +329,7 @@ class AnthropicProvider(BaseLLMProvider):
             temperature=temperature,
             max_tokens=max_tokens,
             stream=stream,
-            tools=None,  # No tools needed for follow-up
+            tools=tools,
         )
 
     def get_content(self, response: Any) -> str:

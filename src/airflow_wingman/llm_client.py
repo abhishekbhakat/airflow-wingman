@@ -100,7 +100,7 @@ class LLMClient:
                 # Create a follow-up completion with the tool results
                 logger.info("Making follow-up request with tool results")
                 follow_up_response = self.provider.create_follow_up_completion(
-                    messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, tool_results=tool_results, original_response=response
+                    messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, tool_results=tool_results, original_response=response, tools=provider_tools
                 )
 
                 content = self.provider.get_content(follow_up_response)
@@ -184,8 +184,18 @@ class LLMClient:
                 # Only stream on the final iteration
                 should_stream = (iteration == max_iterations) or not self.provider.has_tool_calls(current_response)
 
+                # Get provider-specific tool definitions from Airflow tools
+                provider_tools = self.provider.convert_tools(self.airflow_tools)
+
                 follow_up_response = self.provider.create_follow_up_completion(
-                    messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, tool_results=tool_results, original_response=current_response, stream=should_stream
+                    messages=messages,
+                    model=model,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    tool_results=tool_results,
+                    original_response=current_response,
+                    stream=should_stream,
+                    tools=provider_tools,
                 )
 
                 # Check if this follow-up response has more tool calls
