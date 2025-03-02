@@ -147,12 +147,23 @@ class WingmanView(AppBuilderBaseView):
                     logger.info(f"Using cookie from closure: {cookie is not None}")
 
                     # Process tool calls and get follow-up response (handles recursive tool calls)
-                    follow_up_response = client.process_tool_calls_and_follow_up(streaming_response, data["messages"], data["model"], data["temperature"], data["max_tokens"], cookie=cookie)
+                    # Always stream the follow-up response for consistent handling
+                    follow_up_response = client.process_tool_calls_and_follow_up(
+                        streaming_response, data["messages"], data["model"], data["temperature"], data["max_tokens"], cookie=cookie, stream=True
+                    )
 
                     # Stream the follow-up response
+                    follow_up_complete_response = ""
                     for chunk in follow_up_response:
                         if chunk:
+                            follow_up_complete_response += chunk
+                            # logger.info(f"Yielding chunk to frontend: {chunk[:50]}...")
                             yield f"data: {chunk}\n\n"
+
+                    # Log the complete follow-up response
+                    logger.info("FOLLOW-UP RESPONSE START >>>")
+                    logger.info(follow_up_complete_response)
+                    logger.info("<<< FOLLOW-UP RESPONSE END")
 
                     # Signal tool processing complete - frontend can re-enable send button
                     yield f"data: {json.dumps({'event': 'tool_processing_complete'})}\n\n"
