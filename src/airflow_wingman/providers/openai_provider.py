@@ -37,6 +37,15 @@ class OpenAIProvider(BaseLLMProvider):
             base_url: Optional base URL for the API (used for OpenRouter)
         """
         self.api_key = api_key
+        
+        # Ensure the base_url doesn't end with /chat/completions to prevent URL duplication
+        if base_url and '/chat/completions' in base_url:
+            # Strip the /chat/completions part and ensure we have a proper base URL
+            base_url = base_url.split('/chat/completions')[0]
+            if not base_url.endswith('/v1'):
+                base_url = f"{base_url}/v1" if not base_url.endswith('/') else f"{base_url}v1"
+            logger.info(f"Modified base_url to prevent endpoint duplication: {base_url}")
+            
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
     def convert_tools(self, airflow_tools: list) -> list:
