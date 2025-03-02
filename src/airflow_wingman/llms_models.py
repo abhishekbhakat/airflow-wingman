@@ -1,7 +1,7 @@
 MODELS = {
     "openai": {
         "name": "OpenAI",
-        "endpoint": "https://api.openai.com/v1/chat/completions",
+        "endpoint": "https://api.openai.com/v1",
         "models": [
             {
                 "id": "gpt-4o",
