@@ -256,6 +256,22 @@ document.addEventListener('DOMContentLoaded', function() {
                                 continue;
                             }
 
+                            // Handle follow-up response event
+                            if (parsed.event === 'follow_up_response' && parsed.content) {
+                                console.log('Received follow-up response');
+                                
+                                // Add this follow-up response to message history
+                                messageHistory.push({
+                                    role: 'assistant',
+                                    content: parsed.content
+                                });
+                                
+                                // Create a new message div for the follow-up response
+                                // The addMessage function already handles markdown rendering
+                                addMessage(parsed.content, false);
+                                continue;
+                            }
+
                             // Handle the complete response event
                             if (parsed.event === 'complete_response') {
                                 console.log('Received complete response from backend');

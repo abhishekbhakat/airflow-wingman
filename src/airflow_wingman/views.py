@@ -136,7 +136,9 @@ class WingmanView(AppBuilderBaseView):
                 logger.info("<<< COMPLETE RESPONSE END")
 
                 # Check for tool calls and make follow-up if needed
-                if client.provider.has_tool_calls(streaming_response):
+                has_tool_calls = client.provider.has_tool_calls(streaming_response)
+                logger.info(f"Has tool calls: {has_tool_calls}")
+                if has_tool_calls:
                     # Signal tool processing start - frontend should disable send button
                     yield f"data: {json.dumps({'event': 'tool_processing_start'})}\n\n"
 
@@ -152,18 +154,24 @@ class WingmanView(AppBuilderBaseView):
                         streaming_response, data["messages"], data["model"], data["temperature"], data["max_tokens"], cookie=cookie, stream=True
                     )
 
-                    # Stream the follow-up response
+                    # Collect the follow-up response
                     follow_up_complete_response = ""
                     for chunk in follow_up_response:
                         if chunk:
                             follow_up_complete_response += chunk
-                            # logger.info(f"Yielding chunk to frontend: {chunk[:50]}...")
-                            yield f"data: {chunk}\n\n"
-
-                    # Log the complete follow-up response
-                    logger.info("FOLLOW-UP RESPONSE START >>>")
-                    logger.info(follow_up_complete_response)
-                    logger.info("<<< FOLLOW-UP RESPONSE END")
+                    
+                    # Send the follow-up response as a single event
+                    if follow_up_complete_response:
+                        follow_up_event = json.dumps({'event': 'follow_up_response', 'content': follow_up_complete_response})
+                        logger.info(f"Follow-up event created with length: {len(follow_up_event)}")
+                        data_line = f"data: {follow_up_event}\n\n"
+                        logger.info(f"Yielding data line with length: {len(data_line)}")
+                        yield data_line
+                        
+                        # Log the complete follow-up response
+                        logger.info("FOLLOW-UP RESPONSE START >>>")
+                        logger.info(follow_up_complete_response)
+                        logger.info("<<< FOLLOW-UP RESPONSE END")
 
                     # Signal tool processing complete - frontend can re-enable send button
                     yield f"data: {json.dumps({'event': 'tool_processing_complete'})}\n\n"
