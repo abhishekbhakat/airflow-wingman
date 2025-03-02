@@ -174,3 +174,5 @@ cython_debug/
 # Local Resources
 plugins_reference/
 astro/
+
+node_modules/

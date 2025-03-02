@@ -1,0 +1,99 @@
+/* Provider and model selection styling */
+.provider-section {
+    margin-bottom: 20px;
+}
+.provider-name {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #666;
+}
+.model-option {
+    margin-left: 15px;
+    margin-bottom: 8px;
+}
+.model-option label {
+    display: block;
+    cursor: pointer;
+}
+
+/* Message styling */
+.message {
+    margin-bottom: 15px;
+    max-width: 80%;
+    clear: both;
+}
+
+.message p {
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+.message-user {
+    float: right;
+    background-color: #f0f7ff;
+    border: 1px solid #d1e6ff;
+    border-radius: 15px 15px 0 15px;
+    padding: 10px 15px;
+}
+
+.message pre {
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+    padding: 0.5em;
+}
+
+.message-assistant {
+    float: left;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 15px 15px 15px 0;
+    padding: 10px 15px;
+}
+
+.message code {
+    padding: 0.1em 0.3em;
+}
+
+#chat-messages::after {
+    content: "";
+    clear: both;
+    display: table;
+}
+
+/* Scrollbar styling */
+.panel-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.panel-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.panel-body::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.panel-body::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Processing indicator styling */
+.processing-indicator {
+    display: none;
+    background-color: #f0f8ff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin: 8px 0;
+    font-style: italic;
+}
+
+.processing-indicator.visible {
+    display: block;
+}
+
+.pre-formatted {
+    font-family: monospace;
+    line-height: 1.2;
+}
