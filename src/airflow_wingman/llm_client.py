@@ -81,10 +81,8 @@ class LLMClient:
             # If streaming, handle based on return_response_obj flag
             if stream:
                 logger.info(f"Using streaming response from {self.provider_name}")
-                if return_response_obj:
-                    return response, self.provider.get_streaming_content(response)
-                else:
-                    return self.provider.get_streaming_content(response)
+                streaming_content = self.provider.get_streaming_content(response)
+                return streaming_content
 
             # For non-streaming responses, handle tool calls if present
             if self.provider.has_tool_calls(response):
@@ -143,7 +141,7 @@ class LLMClient:
 
         return cls(provider_name=provider_name, api_key=api_key, base_url=base_url)
 
-    def process_tool_calls_and_follow_up(self, response, messages, model, temperature, max_tokens, max_iterations=5):
+    def process_tool_calls_and_follow_up(self, response, messages, model, temperature, max_tokens, max_iterations=5, cookie=None):
         """
         Process tool calls recursively from a response and make follow-up requests until
         there are no more tool calls or max_iterations is reached.
@@ -156,6 +154,7 @@ class LLMClient:
             temperature: Sampling temperature (0-1)
             max_tokens: Maximum tokens to generate
             max_iterations: Maximum number of tool call iterations to prevent infinite loops
+            cookie: Airflow cookie for authentication (optional, will try to get from session if not provided)
 
         Returns:
             Generator for streaming the final follow-up response
@@ -163,8 +162,8 @@ class LLMClient:
         try:
             iteration = 0
             current_response = response
-            cookie = session.get("airflow_cookie")
 
+            # Check if we have a cookie
             if not cookie:
                 error_msg = "No Airflow cookie available"
                 logger.error(error_msg)

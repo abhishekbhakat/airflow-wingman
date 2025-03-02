@@ -31,7 +31,14 @@ async def _list_airflow_tools_async(cookie: str) -> list:
         # Set up configuration
         base_url = f"{configuration.conf.get('webserver', 'base_url')}/api/v1/"
         logger.info(f"Setting up AirflowConfig with base_url: {base_url}")
-        config = AirflowConfig(base_url=base_url, cookie=cookie, auth_token=None)
+
+        # Format the cookie properly if it doesn't already have the 'session=' prefix
+        formatted_cookie = cookie
+        if cookie and not cookie.startswith("session="):
+            formatted_cookie = f"session={cookie}"
+            logger.info(f"Formatted cookie with session prefix: {formatted_cookie[:10]}...")
+
+        config = AirflowConfig(base_url=base_url, cookie=formatted_cookie, auth_token=None)
 
         # Get available tools
         logger.info("Getting Airflow tools...")
@@ -73,20 +80,32 @@ async def _execute_airflow_tool_async(tool_name: str, arguments: dict, cookie: s
         # Set up configuration
         base_url = f"{configuration.conf.get('webserver', 'base_url')}/api/v1/"
         logger.info(f"Setting up AirflowConfig with base_url: {base_url}")
-        config = AirflowConfig(base_url=base_url, cookie=cookie, auth_token=None)
+
+        # Format the cookie properly if it doesn't already have the 'session=' prefix
+        formatted_cookie = cookie
+        if cookie and not cookie.startswith("session="):
+            formatted_cookie = f"session={cookie}"
+            logger.info(f"Formatted cookie with session prefix: {formatted_cookie[:10]}...")
+
+        config = AirflowConfig(base_url=base_url, cookie=formatted_cookie, auth_token=None)
 
         # Get the tool
         logger.info(f"Getting tool: {tool_name}")
-        tool = await get_tool(config=config, tool_name=tool_name)
+        tool = await get_tool(config=config, name=tool_name)
 
         if not tool:
             error_msg = f"Tool not found: {tool_name}"
             logger.error(error_msg)
             return json.dumps({"error": error_msg})
 
-        # Execute the tool
+        # Execute the tool - ensure the client is in an async context
         logger.info(f"Executing tool: {tool_name} with arguments: {arguments}")
-        result = await tool.run(arguments)
+
+        # The AirflowClient needs to be used as an async context manager
+        # to properly initialize its session
+        async with tool.client as client:  # noqa F841
+            # Now the client has a _session attribute and is in an async context
+            result = await tool.run(arguments)
 
         # Convert result to string
         if isinstance(result, dict | list):
@@ -114,4 +133,21 @@ def execute_airflow_tool(tool_name: str, arguments: dict, cookie: str) -> str:
     Returns:
         Result of the tool execution as a string
     """
-    return asyncio.run(_execute_airflow_tool_async(tool_name, arguments, cookie))
+    # Create a new event loop for this execution
+    # This ensures we're always in a clean async context
+    loop = asyncio.new_event_loop()
+
+    try:
+        # Set the event loop for this thread
+        asyncio.set_event_loop(loop)
+
+        # Run the async function in the new event loop
+        result = loop.run_until_complete(_execute_airflow_tool_async(tool_name, arguments, cookie))
+        return result
+    except Exception as e:
+        error_msg = f"Error in execute_airflow_tool: {str(e)}\n{traceback.format_exc()}"
+        logger.error(error_msg)
+        return json.dumps({"error": error_msg})
+    finally:
+        # Always close the loop to free resources
+        loop.close()

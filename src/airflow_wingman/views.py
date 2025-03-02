@@ -114,16 +114,18 @@ class WingmanView(AppBuilderBaseView):
         """Handle streaming response."""
         try:
             logger.info("Beginning streaming response")
-            # Use the enhanced chat_completion method with return_response_obj=True
-            response_obj, generator = client.chat_completion(
-                messages=data["messages"], model=data["model"], temperature=data["temperature"], max_tokens=data["max_tokens"], stream=True, return_response_obj=True
-            )
+            # Get the cookie at the beginning of the request handler
+            airflow_cookie = request.cookies.get("session")
+            logger.info(f"Got airflow_cookie: {airflow_cookie is not None}")
 
-            def stream_response():
+            # Use the enhanced chat_completion method with return_response_obj=True
+            streaming_response = client.chat_completion(messages=data["messages"], model=data["model"], temperature=data["temperature"], max_tokens=data["max_tokens"], stream=True)
+
+            def stream_response(cookie=airflow_cookie):
                 complete_response = ""
 
                 # Stream the initial response
-                for chunk in generator:
+                for chunk in streaming_response:
                     if chunk:
                         complete_response += chunk
                         yield f"data: {chunk}\n\n"
@@ -134,7 +136,7 @@ class WingmanView(AppBuilderBaseView):
                 logger.info("<<< COMPLETE RESPONSE END")
 
                 # Check for tool calls and make follow-up if needed
-                if client.provider.has_tool_calls(response_obj):
+                if client.provider.has_tool_calls(streaming_response):
                     # Signal tool processing start - frontend should disable send button
                     yield f"data: {json.dumps({'event': 'tool_processing_start'})}\n\n"
 
@@ -142,9 +144,10 @@ class WingmanView(AppBuilderBaseView):
                     yield f"data: {json.dumps({'event': 'replace_content'})}\n\n"
 
                     logger.info("Response contains tool calls, making follow-up request")
+                    logger.info(f"Using cookie from closure: {cookie is not None}")
 
                     # Process tool calls and get follow-up response (handles recursive tool calls)
-                    follow_up_response = client.process_tool_calls_and_follow_up(response_obj, data["messages"], data["model"], data["temperature"], data["max_tokens"])
+                    follow_up_response = client.process_tool_calls_and_follow_up(streaming_response, data["messages"], data["model"], data["temperature"], data["max_tokens"], cookie=cookie)
 
                     # Stream the follow-up response
                     for chunk in follow_up_response:
