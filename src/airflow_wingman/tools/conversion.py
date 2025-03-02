@@ -66,6 +66,15 @@ def convert_to_openai_tools(airflow_tools: list) -> list:
                     # Add default value if available
                     if "default" in param_info and param_info["default"] is not None:
                         param_def["default"] = param_info["default"]
+                        
+                    # Add items property for array types
+                    if param_def.get("type") == "array" and "items" not in param_def:
+                        # If items is defined in the original schema, use it
+                        if "items" in param_info:
+                            param_def["items"] = param_info["items"]
+                        else:
+                            # Otherwise, default to string items
+                            param_def["items"] = {"type": "string"}
 
                     # Add to properties
                     openai_tool["function"]["parameters"]["properties"][param_name] = param_def
@@ -141,3 +150,7 @@ def _handle_schema_construct(param_def: dict[str, Any], param_info: dict[str, An
     # If no type was found, default to string
     if "type" not in param_def:
         param_def["type"] = "string"
+        
+    # Add items property for array types
+    if param_def.get("type") == "array" and "items" not in param_def:
+        param_def["items"] = {"type": "string"}
