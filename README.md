@@ -11,3 +11,11 @@ Install using pip:
 ```bash
 pip install airflow-wingman
 ```
+
+## Demo Video
+
+https://github.com/user-attachments/assets/6a459071-dddc-43cb-8e2a-87104d67cf29
+
+## Resources
+
+Pypi: https://pypi.org/project/airflow-wingman
