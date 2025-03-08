@@ -1,10 +1,10 @@
 
 [project]
 name = "airflow-wingman"
-version = "0.3.1"
+version = "0.3.2"
 description = "Airflow plugin to enable LLMs chat"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 authors = [
     {name = "Abhishek Bhakat", email = "abhishek.bhakat@hotmail.com"}
 ]
@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.9",
 ]
 license = "MIT"
 license-files = ["LICEN[CS]E*"]
