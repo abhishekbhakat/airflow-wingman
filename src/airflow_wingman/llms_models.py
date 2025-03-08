@@ -32,6 +32,19 @@ MODELS = {
             },
         ],
     },
+    "google": {
+        "name": "Google Gemini",
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/generateContent",
+        "models": [
+            {
+                "id": "gemini-2.0-flash",
+                "name": "Gemini 2.0 Flash",
+                "default": True,
+                "context_window": 1000000,
+                "description": "Input $0.1/M tokens, Output $0.4/M tokens",
+            }
+        ],
+    },
     "openrouter": {
         "name": "OpenRouter",
         "endpoint": "https://openrouter.ai/api/v1/chat/completions",
