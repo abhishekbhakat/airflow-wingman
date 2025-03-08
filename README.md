@@ -16,6 +16,18 @@ pip install airflow-wingman
 
 https://github.com/user-attachments/assets/6a459071-dddc-43cb-8e2a-87104d67cf29
 
+## Supported Models
+
+- OpenAI
+    - GPT-4o
+- Google Gemini
+    - Gemini 2.0 Flash
+- Anthropic
+    - Claude 3.7 Sonnet
+    - Claude 3.5 Haiku
+- Openrouter
+    - Any model but context length is limited to 128K.
+
 ## Resources
 
 Pypi: https://pypi.org/project/airflow-wingman
