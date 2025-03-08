@@ -45,9 +45,7 @@ class WingmanView(AppBuilderBaseView):
                 try:
                     airflow_tools = list_airflow_tools(airflow_cookie)
                     logger.info(f"Loaded {len(airflow_tools)} Airflow tools")
-                    if len(airflow_tools) > 0:
-                        logger.info(f"First tool: {airflow_tools[0].name if hasattr(airflow_tools[0], 'name') else 'Unknown'}")
-                    else:
+                    if not len(airflow_tools) > 0:
                         logger.warning("No Airflow tools were loaded")
                 except Exception as e:
                     # Log the error but continue without tools
@@ -159,15 +157,15 @@ class WingmanView(AppBuilderBaseView):
                     for chunk in follow_up_response:
                         if chunk:
                             follow_up_complete_response += chunk
-                    
+
                     # Send the follow-up response as a single event
                     if follow_up_complete_response:
-                        follow_up_event = json.dumps({'event': 'follow_up_response', 'content': follow_up_complete_response})
+                        follow_up_event = json.dumps({"event": "follow_up_response", "content": follow_up_complete_response})
                         logger.info(f"Follow-up event created with length: {len(follow_up_event)}")
                         data_line = f"data: {follow_up_event}\n\n"
                         logger.info(f"Yielding data line with length: {len(data_line)}")
                         yield data_line
-                        
+
                         # Log the complete follow-up response
                         logger.info("FOLLOW-UP RESPONSE START >>>")
                         logger.info(follow_up_complete_response)

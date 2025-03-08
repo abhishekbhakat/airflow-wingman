@@ -7,6 +7,7 @@ based on the provider name.
 
 from airflow_wingman.providers.anthropic_provider import AnthropicProvider
 from airflow_wingman.providers.base import BaseLLMProvider
+from airflow_wingman.providers.google_provider import GoogleProvider
 from airflow_wingman.providers.openai_provider import OpenAIProvider
 
 
@@ -15,7 +16,7 @@ def create_llm_provider(provider_name: str, api_key: str, base_url: str | None =
     Create a provider instance based on the provider name.
 
     Args:
-        provider_name: Name of the provider (openai, anthropic, openrouter)
+        provider_name: Name of the provider (openai, anthropic, openrouter, google)
         api_key: API key for the provider
         base_url: Optional base URL for the provider API
 
@@ -37,5 +38,7 @@ def create_llm_provider(provider_name: str, api_key: str, base_url: str | None =
         return OpenAIProvider(api_key=api_key, base_url=base_url)
     elif provider_name == "anthropic":
         return AnthropicProvider(api_key=api_key)
+    elif provider_name == "google":
+        return GoogleProvider(api_key=api_key)
     else:
-        raise ValueError(f"Unsupported provider: {provider_name}. Supported providers: openai, anthropic, openrouter")
+        raise ValueError(f"Unsupported provider: {provider_name}. Supported providers: openai, anthropic, openrouter, google")
