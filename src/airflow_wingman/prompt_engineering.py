@@ -29,7 +29,6 @@ def prepare_messages(messages: list[dict[str, str]], instruction_key: str = "def
     """
     instruction = INSTRUCTIONS.get(instruction_key, INSTRUCTIONS["default"])
 
-    # Add instruction as first system message if not present
     if not messages or messages[0].get("role") != "system":
         messages.insert(0, {"role": "system", "content": instruction})
 

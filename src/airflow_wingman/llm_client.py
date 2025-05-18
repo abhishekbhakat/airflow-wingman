@@ -14,7 +14,6 @@ from flask import session
 from airflow_wingman.providers import create_llm_provider
 from airflow_wingman.tools import list_airflow_tools
 
-# Create a properly namespaced logger for the Airflow plugin
 logger = logging.getLogger("airflow.plugins.wingman")
 
 
@@ -69,26 +68,21 @@ class LLMClient:
             If stream=True and return_response_obj=False: Generator for streaming
             If stream=True and return_response_obj=True: Tuple of (response_obj, generator)
         """
-        # Get provider-specific tool definitions from Airflow tools
         provider_tools = self.provider.convert_tools(self.airflow_tools)
 
         try:
-            # Make the initial request with tools
             logger.info(f"Sending chat completion request to {self.provider_name} with model: {model}")
             response = self.provider.create_chat_completion(messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, stream=stream, tools=provider_tools)
             logger.info(f"Received response from {self.provider_name}")
 
-            # If streaming, handle based on return_response_obj flag
             if stream:
                 logger.info(f"Using streaming response from {self.provider_name}")
                 streaming_content = self.provider.get_streaming_content(response)
                 return streaming_content
 
-            # For non-streaming responses, handle tool calls if present
             if self.provider.has_tool_calls(response):
                 logger.info("Response contains tool calls")
 
-                # Process tool calls and get results
                 cookie = session.get("airflow_cookie")
                 if not cookie:
                     error_msg = "No Airflow cookie available"
@@ -97,7 +91,6 @@ class LLMClient:
 
                 tool_results = self.provider.process_tool_calls(response, cookie)
 
-                # Create a follow-up completion with the tool results
                 logger.info("Making follow-up request with tool results")
                 follow_up_response = self.provider.create_follow_up_completion(
                     messages=messages, model=model, temperature=temperature, max_tokens=max_tokens, tool_results=tool_results, original_response=response, tools=provider_tools
@@ -164,30 +157,23 @@ class LLMClient:
             iteration = 0
             current_response = response
 
-            # Check if we have a cookie
             if not cookie:
                 error_msg = "No Airflow cookie available"
                 logger.error(error_msg)
                 yield f"Error: {error_msg}"
                 return
 
-            # Process tool calls recursively until there are no more or max_iterations is reached
             while self.provider.has_tool_calls(current_response) and iteration < max_iterations:
                 iteration += 1
                 logger.info(f"Processing tool calls iteration {iteration}/{max_iterations}")
 
-                # Process tool calls and get results
                 tool_results = self.provider.process_tool_calls(current_response, cookie)
 
-                # Make follow-up request with tool results
                 logger.info(f"Making follow-up request with tool results (iteration {iteration})")
 
-                # Always stream follow-up requests to ensure consistent behavior
-                # This ensures we get streaming responses from the provider
                 should_stream = True
                 logger.info(f"Setting should_stream=True for follow-up request (iteration {iteration})")
 
-                # Get provider-specific tool definitions from Airflow tools
                 provider_tools = self.provider.convert_tools(self.airflow_tools)
 
                 follow_up_response = self.provider.create_follow_up_completion(
@@ -201,33 +187,24 @@ class LLMClient:
                     tools=provider_tools,
                 )
 
-                # Check if this follow-up response has more tool calls
                 if not self.provider.has_tool_calls(follow_up_response):
                     logger.info(f"No more tool calls after iteration {iteration}")
-                    # Final response - always yield content in a streaming fashion
-                    # Since we're always streaming now, we can directly yield chunks from the streaming generator
                     chunk_count = 0
                     for chunk in self.provider.get_streaming_content(follow_up_response):
                         chunk_count += 1
-                        # logger.info(f"Yielding chunk {chunk_count} from streaming generator: {chunk[:50] if chunk else 'Empty chunk'}...")
                         yield chunk
                     logger.info(f"Finished yielding {chunk_count} chunks from streaming generator")
 
-                # Update current_response for the next iteration
                 current_response = follow_up_response
 
-            # If we've reached max_iterations and still have tool calls, log a warning
             if iteration == max_iterations and self.provider.has_tool_calls(current_response):
                 logger.warning(f"Reached maximum tool call iterations ({max_iterations})")
-                # Stream the final response even if it has tool calls
                 if not should_stream:
-                    # If we didn't stream this response, convert it to a single chunk
                     content = self.provider.get_content(follow_up_response)
                     logger.info(f"Yielding complete content as a single chunk (max iterations): {content[:100]}...")
                     yield content
                     logger.info("Finished yielding complete content (max iterations)")
                 else:
-                    # Yield chunks from the streaming generator
                     logger.info("Starting to yield chunks from streaming generator (max iterations reached)")
                     chunk_count = 0
                     for chunk in self.provider.get_streaming_content(follow_up_response):
@@ -236,7 +213,6 @@ class LLMClient:
                         yield chunk
                     logger.info(f"Finished yielding {chunk_count} chunks from streaming generator (max iterations)")
 
-            # If we didn't process any tool calls (shouldn't happen), return an error
             if iteration == 0:
                 error_msg = "No tool calls found in response"
                 logger.error(error_msg)
@@ -262,5 +238,3 @@ class LLMClient:
         except Exception as e:
             error_msg = f"Error refreshing Airflow tools: {str(e)}\n{traceback.format_exc()}"
             logger.error(error_msg)
-            # Don't raise the exception, just log it
-            # The client will continue to use the existing tools (if any)

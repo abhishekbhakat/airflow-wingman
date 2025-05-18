@@ -5,7 +5,6 @@ from flask import Blueprint
 
 from airflow_wingman.views import WingmanView
 
-# Create Blueprint
 bp = Blueprint(
     "wingman",
     __name__,
@@ -14,7 +13,6 @@ bp = Blueprint(
     static_url_path="/static/wingman",
 )
 
-# Create AppBuilder View
 v_appbuilder_view = WingmanView()
 v_appbuilder_package = {
     "name": "Wingman",
@@ -23,7 +21,6 @@ v_appbuilder_package = {
 }
 
 
-# Create Plugin
 class WingmanPlugin(AirflowPlugin):
     """Airflow plugin for Wingman chat interface."""
 
