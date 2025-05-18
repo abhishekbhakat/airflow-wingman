@@ -5,8 +5,6 @@ This module provides Pydantic models for configuration management, ensuring
 type safety and validation for all configuration parameters.
 """
 
-import os
-
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -59,23 +57,6 @@ class WingmanConfig(BaseModel):
             raise ValueError(f"Provider '{v}' not supported. Must be one of: {', '.join(supported_providers)}")
 
         return v.lower()
-
-    @classmethod
-    def from_env(cls) -> "WingmanConfig":
-        """
-        Create a WingmanConfig instance from environment variables.
-
-        Returns:
-            WingmanConfig instance
-        """
-        return cls(
-            provider_name=os.environ.get("WINGMAN_PROVIDER", "openai"),
-            api_key=os.environ.get("WINGMAN_API_KEY", ""),
-            base_url=os.environ.get("WINGMAN_BASE_URL"),
-            model=os.environ.get("WINGMAN_MODEL", "gpt-3.5-turbo-0125"),
-            temperature=float(os.environ.get("WINGMAN_TEMPERATURE", "0.4")),
-            max_tokens=int(os.environ.get("WINGMAN_MAX_TOKENS", "0")) or None,
-        )
 
     @classmethod
     def from_dict(cls, config: dict) -> "WingmanConfig":

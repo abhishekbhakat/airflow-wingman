@@ -176,3 +176,5 @@ plugins_reference/
 astro/
 
 node_modules/
+
+archive/

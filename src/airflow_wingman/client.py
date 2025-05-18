@@ -9,8 +9,8 @@ import logging
 from collections.abc import Generator
 from typing import Any
 
-from airflow_wingman.config import WingmanConfig
-from airflow_wingman.service.llm_service import LLMService
+from airflow_wingman.models.config import WingmanConfig
+from airflow_wingman.services.llm import LLMService
 
 logger = logging.getLogger("airflow.plugins.wingman")
 

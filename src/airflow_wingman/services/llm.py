@@ -10,30 +10,11 @@ import traceback
 from collections.abc import AsyncGenerator, Generator
 from typing import Any
 
-from pydantic import BaseModel
-
-from airflow_wingman.config import WingmanConfig
+from airflow_wingman.models.config import WingmanConfig
+from airflow_wingman.models.tools import ToolResult
 from airflow_wingman.tools import execute_tool, list_airflow_tools
-from airflow_wingman.tools.pydantic_tools import convert_to_anthropic_with_pydantic, convert_to_google_with_pydantic, convert_to_openai_with_pydantic
 
 logger = logging.getLogger("airflow.plugins.wingman")
-
-
-class Message(BaseModel):
-    """Chat message model."""
-
-    role: str
-    content: str
-    name: str | None = None
-    tool_calls: list[dict[str, Any]] | None = None
-    tool_call_id: str | None = None
-
-
-class ToolResult(BaseModel):
-    """Model for tool execution results."""
-
-    tool_call_id: str
-    output: str
 
 
 class LLMService:
@@ -70,12 +51,6 @@ class LLMService:
         if self.base_url:
             self.provider_config["base_url"] = self.base_url
 
-        self.tool_converters = {
-            "openai": convert_to_openai_with_pydantic,
-            "anthropic": convert_to_anthropic_with_pydantic,
-            "google": convert_to_google_with_pydantic,
-        }
-
     def set_airflow_tools(self, tools: list[Any]):
         """
         Set the available Airflow tools.
@@ -102,27 +77,6 @@ class LLMService:
             error_msg = f"Error refreshing Airflow tools: {str(e)}\n{traceback.format_exc()}"
             logger.error(error_msg)
 
-    def _convert_tools(self) -> list[Any]:
-        """
-        Convert Airflow tools to the format needed by the current provider.
-
-        Returns:
-            List of provider-specific tool definitions
-        """
-        if not self.airflow_tools:
-            return []
-
-        converter = self.tool_converters.get(self.provider_name.lower())
-        if not converter:
-            logger.warning(f"No tool converter found for provider: {self.provider_name}")
-            return []
-
-        try:
-            return converter(self.airflow_tools)
-        except Exception as e:
-            logger.error(f"Error converting tools: {str(e)}")
-            return []
-
     def _prepare_chat_request(self, messages: list[dict[str, Any]], model: str, temperature: float, max_tokens: int | None, stream: bool, tools: list[Any] | None = None):
         """
         Prepare a chat request for the appropriate provider using Pydantic AI.
@@ -138,9 +92,6 @@ class LLMService:
         Returns:
             Provider-specific chat request
         """
-
-        provider_tools = tools or self._convert_tools()
-
         request_config = {
             "model": model,
             "messages": messages,
@@ -151,8 +102,11 @@ class LLMService:
         if max_tokens:
             request_config["max_tokens"] = max_tokens
 
-        if provider_tools:
-            request_config["tools"] = provider_tools
+        if tools and len(tools) > 0:
+            request_config["tools"] = tools
+        elif self.airflow_tools:
+            # Pydantic AI will handle the conversion automatically
+            request_config["tools"] = self.airflow_tools
 
         return request_config
 
@@ -326,12 +280,21 @@ class LLMService:
                 return {"error": str(e)}
 
     def process_tool_calls_and_follow_up(
-        self, messages: list[dict[str, Any]], model: str, temperature: float = 0.4, max_tokens: int | None = None, cookie: str | None = None, max_iterations: int = 5, stream: bool = True
+        self,
+        response: Any,
+        messages: list[dict[str, Any]],
+        model: str,
+        temperature: float = 0.4,
+        max_tokens: int | None = None,
+        cookie: str | None = None,
+        max_iterations: int = 5,
+        stream: bool = True,
     ) -> Generator[str, None, None]:
         """
         Process tool calls recursively and make follow-up requests.
 
         Args:
+            response: Previous response containing tool calls (can be None if starting fresh)
             messages: List of message dictionaries
             model: Model identifier
             temperature: Sampling temperature
@@ -361,10 +324,11 @@ class LLMService:
             )
 
             logger.info(f"Starting tool call processing with {self.provider_name}")
-            response = client.complete(**request_config)
+
+            # If no previous response is provided, get a new one
+            current_response = response if response else client.complete(**request_config)
 
             iteration = 0
-            current_response = response
 
             while iteration < max_iterations:
                 iteration += 1
@@ -372,7 +336,6 @@ class LLMService:
 
                 if not self._has_tool_calls(current_response):
                     logger.info("No tool calls in response, returning content")
-
                     content = self._get_response_content(current_response)
                     yield content
                     return
@@ -470,7 +433,7 @@ class LLMService:
 
                 result = execute_tool(name=function_name, arguments=function_args, cookie=cookie)
 
-                tool_result = ToolResult(tool_call_id=tool_call.id, output=result)
+                tool_result = ToolResult(tool_name=function_name, tool_args=function_args, result=result, status="success")
 
                 results.append(tool_result)
                 logger.info(f"Successfully executed tool: {function_name}")
@@ -479,7 +442,13 @@ class LLMService:
                 error_msg = f"Error executing tool: {str(e)}"
                 logger.error(error_msg)
 
-                tool_result = ToolResult(tool_call_id=tool_call.id, output=f"Error: {str(e)}")
+                tool_result = ToolResult(
+                    tool_name=function_name if hasattr(tool_call.function, "name") else "unknown",
+                    tool_args=function_args if hasattr(tool_call.function, "arguments") else {},
+                    result=None,
+                    error=str(e),
+                    status="error",
+                )
 
                 results.append(tool_result)
 
@@ -498,7 +467,9 @@ class LLMService:
         messages = []
 
         for result in tool_results:
-            message = {"role": "tool", "tool_call_id": result.tool_call_id, "content": result.output}
+            # Format the message according to the LLM provider expectations
+            content = result.result if result.is_success else f"Error: {result.error}"
+            message = {"role": "tool", "content": str(content), "name": result.tool_name}
 
             messages.append(message)
 
@@ -516,6 +487,13 @@ class LLMService:
         Returns:
             LLMService instance
         """
-        wingman_config = WingmanConfig(provider_name=config.get("provider_name", "openai"), api_key=config.get("api_key", ""), base_url=config.get("base_url"))
+        wingman_config = WingmanConfig(
+            provider_name=config.get("provider_name", "openai"),
+            api_key=config.get("api_key", ""),
+            base_url=config.get("base_url"),
+            model=config.get("model", "gpt-3.5-turbo-0125"),
+            temperature=config.get("temperature", 0.4),
+            max_tokens=config.get("max_tokens"),
+        )
 
         return cls(wingman_config)
